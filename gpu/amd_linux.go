@@ -294,6 +294,7 @@ func AMDGetGPUInfo() ([]RocmGPUInfo, error) {
 		if totalMemory < IGPUMemLimit {
 			reason := "unsupported Radeon iGPU detected skipping"
 			slog.Info(reason, "id", gpuID, "total", format.HumanBytes2(totalMemory))
+			slog.Info("update BIOS with UMA MODE: UMA_SPECIFIED to allocate > 1G VRAM")
 			unsupportedGPUs = append(unsupportedGPUs, UnsupportedGPUInfo{
 				GpuInfo: gpuInfo.GpuInfo,
 				Reason:  reason,
@@ -368,14 +369,17 @@ func AMDGetGPUInfo() ([]RocmGPUInfo, error) {
 				slog.Debug("rocm supported GPUs", "types", supported)
 			}
 			gfx := gpuInfo.Compute
-			if !slices.Contains[[]string, string](supported, gfx) {
+			// special case the iGPU gfx1103 -> gfx1100 mapping which has been verified to work
+			if gfx == "gfx1103" && !slices.Contains[[]string, string](supported, gfx) {
+				slog.Info("amdgpu is supported with known workaround HSA_OVERRIDE_GFX_VERSION=11.0.0", "gpu", gpuInfo.ID, "gpu_type", gfx)
+				gpuInfo.EnvWorkarounds = append(gpuInfo.EnvWorkarounds, [2]string{"HSA_OVERRIDE_GFX_VERSION", "11.0.0"})
+			} else if !slices.Contains[[]string, string](supported, gfx) {
 				reason := fmt.Sprintf("amdgpu is not supported (supported types:%s)", supported)
 				slog.Warn(reason, "gpu_type", gfx, "gpu", gpuInfo.ID, "library", libDir)
 				unsupportedGPUs = append(unsupportedGPUs, UnsupportedGPUInfo{
 					GpuInfo: gpuInfo.GpuInfo,
 					Reason:  reason,
 				})
-
 				// TODO - consider discrete markdown just for ROCM troubleshooting?
 				slog.Warn("See https://github.com/ollama/ollama/blob/main/docs/gpu.md#overrides for HSA_OVERRIDE_GFX_VERSION usage")
 				continue
