@@ -9,3 +9,17 @@ llm/llama.cpp
 test_data
 llm/build
 llama/build
+# Docker config
+docker-compose.yaml
+.dockerignore
+Dockerfile
+# docs
+docs
+CONTRIBUTING.md
+README.md
+SECURITY.md
+LICENSE
+# GitHub CI config
+.github
+# cached models
+data
