@@ -89,7 +89,7 @@ COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
 ENV PATH=/opt/rh/devtoolset-10/root/usr/bin:$PATH
 ENV LIBRARY_PATH=/opt/amdgpu/lib64
-COPY --from=llm-code / /go/src/github.com/ollama/ollama/
+COPY --link --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
 ARG AMDGPU_TARGETS
