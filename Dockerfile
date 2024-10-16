@@ -1,3 +1,4 @@
+# syntax=docker.io/docker/dockerfile:1.7-labs
 ARG GOLANG_VERSION=1.22.5
 ARG CMAKE_VERSION=3.22.1
 ARG CUDA_VERSION_11=11.3.1
@@ -185,7 +186,11 @@ FROM dist-$TARGETARCH as dist
 # Optimized container images do not cary nested payloads
 FROM --platform=linux/amd64 cpu-builder-amd64 AS container-build-amd64
 WORKDIR /go/src/github.com/ollama/ollama
-COPY . .
+# Download the Go module dependencies
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+COPY --exclude=Dockerfile --exclude=docker-compose.yaml --exclude=data . .
 ARG GOFLAGS
 ARG CGO_CFLAGS
 RUN --mount=type=cache,target=/root/.ccache \
