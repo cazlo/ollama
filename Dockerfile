@@ -238,6 +238,10 @@ ENV OLLAMA_HOST=0.0.0.0
 ENTRYPOINT ["/bin/ollama"]
 CMD ["serve"]
 
+FROM --platform=linux/amd64 runtime-rocm AS runtime-rocm-rootless
+ARG RENDER_GROUP_ID
+RUN echo "render:x:${RENDER_GROUP_ID}:root" >> /etc/group
+
 FROM runtime-$TARGETARCH
 EXPOSE 11434
 ENV OLLAMA_HOST=0.0.0.0
