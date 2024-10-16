@@ -1,10 +1,11 @@
+# syntax=docker.io/docker/dockerfile:1.7-labs
 ARG GOLANG_VERSION=1.22.5
 ARG CMAKE_VERSION=3.22.1
 ARG CUDA_VERSION_11=11.3.1
 ARG CUDA_V11_ARCHITECTURES="50;52;53;60;61;62;70;72;75;80;86"
 ARG CUDA_VERSION_12=12.4.0
 ARG CUDA_V12_ARCHITECTURES="60;61;62;70;72;75;80;86;87;89;90;90a"
-ARG ROCM_VERSION=6.1.2
+ARG ROCM_VERSION=6.2
 
 # Copy the minimal context we need to run the generate scripts
 FROM scratch AS llm-code
@@ -88,7 +89,7 @@ COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
 ENV PATH=/opt/rh/devtoolset-10/root/usr/bin:$PATH
 ENV LIBRARY_PATH=/opt/amdgpu/lib64
-COPY --from=llm-code / /go/src/github.com/ollama/ollama/
+COPY --link --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
 ARG AMDGPU_TARGETS
@@ -185,7 +186,11 @@ FROM dist-$TARGETARCH as dist
 # Optimized container images do not cary nested payloads
 FROM --platform=linux/amd64 cpu-builder-amd64 AS container-build-amd64
 WORKDIR /go/src/github.com/ollama/ollama
-COPY . .
+# Download the Go module dependencies
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+COPY --exclude=Dockerfile --exclude=docker-compose.yaml --exclude=data . .
 ARG GOFLAGS
 ARG CGO_CFLAGS
 RUN --mount=type=cache,target=/root/.ccache \
@@ -237,6 +242,10 @@ ENV OLLAMA_HOST=0.0.0.0
 
 ENTRYPOINT ["/bin/ollama"]
 CMD ["serve"]
+
+FROM --platform=linux/amd64 runtime-rocm AS runtime-rocm-rootless
+ARG RENDER_GROUP_ID
+RUN echo "render:x:${RENDER_GROUP_ID}:root" >> /etc/group
 
 FROM runtime-$TARGETARCH
 EXPOSE 11434
