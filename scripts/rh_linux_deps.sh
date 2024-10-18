@@ -32,22 +32,13 @@ if grep -i "centos" /etc/system-release >/dev/null; then
     fi
     dnf install -y devtoolset-10-gcc devtoolset-10-gcc-c++ pigz findutils
 elif grep -i "rocky" /etc/system-release >/dev/null; then
-    # Temporary workaround until rocky 8 AppStream ships GCC 10.4 (10.3 is incompatible with NVCC)
-    cat << EOF > /etc/yum.repos.d/Rocky-Vault.repo
-[vault]
-name=Rocky Vault
-baseurl=https://dl.rockylinux.org/vault/rocky/8.5/AppStream/\$basearch/os/
-gpgcheck=1
-enabled=1
-countme=1
-gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-rockyofficial
-EOF
     dnf install -y git \
-        gcc-toolset-10-gcc-10.2.1-8.2.el8 \
-        gcc-toolset-10-gcc-c++-10.2.1-8.2.el8 \
+        gcc-toolset-10-gcc \
+        gcc-toolset-10-gcc-c++ \
         findutils \
         yum-utils \
         pigz
+    # todo could probably use 11, but less changes if we use 10
 else
     echo "ERROR Unexpected distro"
     exit 1
