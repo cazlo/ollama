@@ -1,3 +1,4 @@
+# syntax=docker.io/docker/dockerfile:1.7-labs
 ARG GOLANG_VERSION=1.22.5
 ARG CMAKE_VERSION=3.22.1
 ARG CUDA_VERSION_11=11.3.1
@@ -88,7 +89,7 @@ COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
 ENV PATH=/opt/rh/devtoolset-10/root/usr/bin:$PATH
 ENV LIBRARY_PATH=/opt/amdgpu/lib64
-COPY --from=llm-code / /go/src/github.com/ollama/ollama/
+COPY --link --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
 ARG AMDGPU_TARGETS
@@ -185,7 +186,11 @@ FROM dist-$TARGETARCH as dist
 # Optimized container images do not cary nested payloads
 FROM --platform=linux/amd64 cpu-builder-amd64 AS container-build-amd64
 WORKDIR /go/src/github.com/ollama/ollama
-COPY . .
+# Download the Go module dependencies
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+COPY --exclude=Dockerfile --exclude=docker-compose.yaml --exclude=data . .
 ARG GOFLAGS
 ARG CGO_CFLAGS
 RUN --mount=type=cache,target=/root/.ccache \
@@ -237,6 +242,25 @@ ENV OLLAMA_HOST=0.0.0.0
 
 ENTRYPOINT ["/bin/ollama"]
 CMD ["serve"]
+
+FROM --platform=linux/amd64 runtime-rocm AS runtime-rocm-rootless
+ARG RENDER_GROUP_ID
+RUN echo "render:x:${RENDER_GROUP_ID}:root" >> /etc/group
+
+FROM --platform=linux/amd64 rocm/pytorch:rocm6.2.3_ubuntu22.04_py3.10_pytorch_release_2.3.0 as  stable-diffusion-webui
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /opt/webui
+RUN apt-get update && \
+    apt install -y git-all && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui && \
+    cd stable-diffusion-webui && \
+    python -m pip install --upgrade pip wheel
+
+RUN sed -i 's/input:x:106:/input:x:106:root/'  /etc/group
+WORKDIR /opt/webui/stable-diffusion-webui
+COPY stable-diff/sd3_medium.safetensors models/Stable-diffusion/sd3_medium.safetensors
+CMD REQS_FILE='requirements_versions.txt' python launch.py --precision full --no-half --api --listen
 
 FROM runtime-$TARGETARCH
 EXPOSE 11434
