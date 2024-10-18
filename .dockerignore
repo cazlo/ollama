@@ -23,3 +23,5 @@ LICENSE
 .github
 # cached models
 data
+stable-diff/v2-1_768-ema-pruned.safetensors
+stable-diff/v2-1_768-ema-pruned (1).safetensors

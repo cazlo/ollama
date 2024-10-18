@@ -247,6 +247,21 @@ FROM --platform=linux/amd64 runtime-rocm AS runtime-rocm-rootless
 ARG RENDER_GROUP_ID
 RUN echo "render:x:${RENDER_GROUP_ID}:root" >> /etc/group
 
+FROM --platform=linux/amd64 rocm/pytorch:rocm6.2.3_ubuntu22.04_py3.10_pytorch_release_2.3.0 as  stable-diffusion-webui
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /opt/webui
+RUN apt-get update && \
+    apt install -y git-all && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui && \
+    cd stable-diffusion-webui && \
+    python -m pip install --upgrade pip wheel
+
+RUN sed -i 's/input:x:106:/input:x:106:root/'  /etc/group
+WORKDIR /opt/webui/stable-diffusion-webui
+COPY stable-diff/sd3_medium.safetensors models/Stable-diffusion/sd3_medium.safetensors
+CMD REQS_FILE='requirements_versions.txt' python launch.py --precision full --no-half --api --listen
+
 FROM runtime-$TARGETARCH
 EXPOSE 11434
 ENV OLLAMA_HOST=0.0.0.0
