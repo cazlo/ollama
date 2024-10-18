@@ -9,3 +9,19 @@ llm/llama.cpp
 test_data
 llm/build
 llama/build
+# Docker config
+docker-compose.yaml
+.dockerignore
+Dockerfile
+# docs
+docs
+CONTRIBUTING.md
+README.md
+SECURITY.md
+LICENSE
+# GitHub CI config
+.github
+# cached models
+data
+stable-diff/v2-1_768-ema-pruned.safetensors
+stable-diff/v2-1_768-ema-pruned (1).safetensors

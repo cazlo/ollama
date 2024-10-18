@@ -1,0 +1,55 @@
+services:
+  runtime-rocm-rootless:
+    image: ollama/ollama:rocm
+    profiles:
+      - template
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime-rocm-rootless
+      args:
+        RENDER_GROUP_ID: ${RENDER_GROUP_ID:-106}
+    devices:
+      - "/dev/kfd:/dev/kfd:rwm"
+      - "/dev/dri:/dev/dri:rwm"
+    # tty: true
+    # entrypoint:
+    #  -  /bin/bash
+    ipc: host
+    shm_size: 8GB
+    cap_add:
+      - SYS_PTRACE
+    #  privileged: true
+    security_opt:
+      - seccomp=unconfined
+
+    networks:
+      - ollama
+
+  ollama:
+    volumes:
+      - ./data:/root/.ollama
+    ports:
+      - 11434:11434
+    extends:
+     service: runtime-rocm-rootless
+    profiles:
+     - runtime
+
+  stable-diffusion-webui:
+    image: ollama/stable-diffusion-webui:rocm
+    extends:
+      service: runtime-rocm-rootless
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: stable-diffusion-webui
+    profiles:
+      - runtime
+    ports:
+      - 7860:7860
+#    tty: true
+#    command: /bin/bash
+
+networks:
+  ollama: {}
