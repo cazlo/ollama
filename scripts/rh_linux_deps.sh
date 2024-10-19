@@ -33,12 +33,11 @@ if grep -i "centos" /etc/system-release >/dev/null; then
     dnf install -y devtoolset-10-gcc devtoolset-10-gcc-c++ pigz findutils
 elif grep -i "rocky" /etc/system-release >/dev/null; then
     dnf install -y git \
-        gcc-toolset-10-gcc \
-        gcc-toolset-10-gcc-c++ \
+        gcc-toolset-11-gcc \
+        gcc-toolset-11-gcc-c++ \
         findutils \
         yum-utils \
         pigz
-    # todo could probably use 11, but less changes if we use 10
 else
     echo "ERROR Unexpected distro"
     exit 1

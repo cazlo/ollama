@@ -17,7 +17,7 @@ FROM --platform=linux/amd64 nvidia/cuda:$CUDA_VERSION_11-devel-rockylinux8 AS cu
 ARG CMAKE_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
@@ -34,7 +34,7 @@ FROM --platform=linux/amd64 nvidia/cuda:$CUDA_VERSION_12-devel-rockylinux8 AS cu
 ARG CMAKE_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
@@ -52,7 +52,7 @@ FROM --platform=linux/arm64 nvidia/cuda:$CUDA_VERSION_11-devel-rockylinux8 AS cu
 ARG CMAKE_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
@@ -68,7 +68,7 @@ FROM --platform=linux/arm64 nvidia/cuda:$CUDA_VERSION_12-devel-rockylinux8 AS cu
 ARG CMAKE_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
 ARG CGO_CFLAGS
@@ -85,11 +85,11 @@ RUN --mount=type=cache,target=/root/.ccache \
 FROM --platform=linux/amd64 rockylinux:8 as rocm-dev-rockylinux
 # note this is an exact copy of the official rocm almalinux image at https://github.com/ROCm/ROCm-docker/blob/db86386c24eeb45f5d3ba73564b00cc66566e537/dev/Dockerfile-almalinux-8-complete
 # with 2 changes:
-#  - use top level ROCM_VERSION arg
+#  - use gcc 11 instead of 9
 #  - base on rockylinux instead of almalinux
 
 # todo find some way to reuse top level arg for this
-ARG ROCM_VERSION=6.2.1
+ARG ROCM_VERSION=6.1.2
 ARG AMDGPU_VERSION=${ROCM_VERSION}
 
 # Base
@@ -155,9 +155,9 @@ RUN yum install -y fakeroot
 RUN yum clean all
 
 # todo here we should prob go to 10 for consistency with the rest of everything. or maybe 11
-# Install devtoolset 9
-RUN yum install -y gcc-toolset-9
-RUN yum install -y gcc-toolset-9-libatomic-devel gcc-toolset-9-elfutils-libelf-devel
+# Install devtoolset 11
+RUN yum install -y gcc-toolset-11
+RUN yum install -y gcc-toolset-11-libatomic-devel gcc-toolset-11-elfutils-libelf-devel
 
 # Install ROCm repo paths
 RUN echo -e "[ROCm]\nname=ROCm\nbaseurl=https://repo.radeon.com/rocm/rhel8/$ROCM_VERSION/main\nenabled=1\ngpgcheck=0\npriority=50" >> /etc/yum.repos.d/rocm.repo
@@ -171,23 +171,23 @@ RUN echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/$AMDG
 RUN yum install -y rocm-dev rocm-libs
 
 # Set ENV to enable devtoolset9 by default
-ENV PATH=/opt/rh/gcc-toolset-9/root/usr/bin:/opt/rocm/bin:${PATH:+:${PATH}}
-ENV MANPATH=/opt/rh/gcc-toolset-9/root/usr/share/man:${MANPATH}
-ENV INFOPATH=/opt/rh/gcc-toolset-9/root/usr/share/info:${INFOPATH:+:${INFOPATH}}
-ENV PCP_DIR=/opt/rh/gcc-toolset-9/root
-ENV PERL5LIB=/opt/rh/gcc-toolset-9/root/usr/lib64/perl5/vendor_perl
-ENV LD_LIBRARY_PATH=/opt/rocm/lib:/usr/local/lib:/opt/rh/gcc-toolset-9/root/lib:/opt/rh/gcc-toolset-9/root/lib64:${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:/opt/rocm/bin:${PATH:+:${PATH}}
+ENV MANPATH=/opt/rh/gcc-toolset-11/root/usr/share/man:${MANPATH}
+ENV INFOPATH=/opt/rh/gcc-toolset-11/root/usr/share/info:${INFOPATH:+:${INFOPATH}}
+ENV PCP_DIR=/opt/rh/gcc-toolset-11/root
+ENV PERL5LIB=/opt/rh/gcc-toolset-11/root/usr/lib64/perl5/vendor_perl
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:/usr/local/lib:/opt/rh/gcc-toolset-11/root/lib:/opt/rh/gcc-toolset-11/root/lib64:${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
-# ENV PYTHONPATH=/opt/rh/gcc-toolset-9/root/
+# ENV PYTHONPATH=/opt/rh/gcc-toolset-11/root/
 
-ENV LDFLAGS="-Wl,-rpath=/opt/rh/gcc-toolset-9/root/usr/lib64 -Wl,-rpath=/opt/rh/gcc-toolset-9/root/usr/lib"
+ENV LDFLAGS="-Wl,-rpath=/opt/rh/gcc-toolset-11/root/usr/lib64 -Wl,-rpath=/opt/rh/gcc-toolset-11/root/usr/lib"
 
 
 FROM rocm-dev-rockylinux AS rocm-build-amd64
 ARG CMAKE_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 ENV LIBRARY_PATH=/opt/amdgpu/lib64
 COPY --link --from=llm-code / /go/src/github.com/ollama/ollama/
 WORKDIR /go/src/github.com/ollama/ollama/llm/generate
@@ -204,7 +204,7 @@ ARG CMAKE_VERSION
 ARG GOLANG_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} GOLANG_VERSION=${GOLANG_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 ARG OLLAMA_CUSTOM_CPU_DEFS
 ARG CGO_CFLAGS
@@ -226,7 +226,7 @@ ARG CMAKE_VERSION
 ARG GOLANG_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} GOLANG_VERSION=${GOLANG_VERSION} sh /rh_linux_deps.sh
-ENV PATH=/opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 COPY --from=llm-code / /go/src/github.com/ollama/ollama/
 ARG OLLAMA_CUSTOM_CPU_DEFS
 ARG CGO_CFLAGS
