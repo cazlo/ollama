@@ -4,7 +4,7 @@ ARG CUDA_VERSION_11=11.7.1
 ARG CUDA_V11_ARCHITECTURES="50;52;53;60;61;62;70;72;75;80;86"
 ARG CUDA_VERSION_12=12.4.0
 ARG CUDA_V12_ARCHITECTURES="60;61;62;70;72;75;80;86;87;89;90;90a"
-ARG ROCM_VERSION=6.1.2
+ARG ROCM_VERSION=6.3
 
 # Copy the minimal context we need to run the generate scripts
 FROM scratch AS llm-code
@@ -86,7 +86,7 @@ FROM --platform=linux/amd64 rockylinux:8 as rocm-dev-rockylinux
 # with 2 changes:
 #  - use gcc 11 instead of 9
 #  - base on rockylinux instead of almalinux
-ARG ROCM_VERSION=6.1.2
+ARG ROCM_VERSION=6.3
 ARG AMDGPU_VERSION=${ROCM_VERSION}
 
 # Base
