@@ -1,12 +1,110 @@
 ARG GOLANG_VERSION=1.22.8
 ARG CMAKE_VERSION=3.22.1
-ARG CUDA_VERSION_11=11.3.1
+ARG CUDA_VERSION_11=11.7.1
 ARG CUDA_V11_ARCHITECTURES="50;52;53;60;61;62;70;72;75;80;86"
 ARG CUDA_VERSION_12=12.4.0
 ARG CUDA_V12_ARCHITECTURES="60;61;62;70;72;75;80;86;87;89;90;90a"
-ARG ROCM_VERSION=6.1.2
+ARG ROCM_VERSION=6.3
 ARG JETPACK_6=r36.2.0
 ARG JETPACK_5=r35.4.1
+
+FROM --platform=linux/amd64 rockylinux:8 as rocm-dev-rockylinux
+# note this is an exact copy of the official rocm almalinux image at https://github.com/ROCm/ROCm-docker/blob/db86386c24eeb45f5d3ba73564b00cc66566e537/dev/Dockerfile-almalinux-8-complete
+# with 2 changes:
+#  - use gcc 11 instead of 9
+#  - base on rockylinux instead of almalinux
+ARG ROCM_VERSION=6.1.2
+ARG AMDGPU_VERSION=${ROCM_VERSION}
+
+# Base
+RUN yum -y install git java-1.8.0-openjdk python39; yum clean all
+
+# Enable epel-release repositories
+RUN dnf install -y 'dnf-command(config-manager)'
+RUN dnf config-manager --set-enabled powertools
+RUN dnf install -y epel-release
+
+# Install required base build and packaging commands for ROCm
+RUN yum -y install \
+    ca-certificates \
+    bc \
+    bridge-utils \
+    cmake \
+    cmake3 \
+    dkms \
+    doxygen \
+    dpkg \
+    dpkg-dev \
+    dpkg-perl \
+    elfutils-libelf-devel \
+    expect \
+    file \
+    python3-devel \
+    python3-pip \
+    gettext \
+    gcc-c++ \
+    libgcc \
+    lzma \
+    glibc.i686 \
+    ncurses \
+    ncurses-base \
+    ncurses-libs \
+    numactl-devel \
+    numactl-libs \
+    libssh \
+    libunwind-devel \
+    libunwind \
+    llvm \
+    llvm-libs \
+    make \
+    openssl \
+    openssl-libs \
+    openssh \
+    openssh-clients \
+    pciutils \
+    pciutils-devel \
+    pciutils-libs \
+    perl \
+    pkgconfig \
+    qemu-kvm \
+    re2c \
+    kmod \
+    rpm \
+    rpm-build \
+    subversion \
+    wget
+
+# Enable the epel repository for fakeroot
+RUN yum install -y fakeroot
+RUN yum clean all
+
+# Install devtoolset 11
+RUN yum install -y gcc-toolset-11
+RUN yum install -y gcc-toolset-11-libatomic-devel gcc-toolset-11-elfutils-libelf-devel
+
+# Install ROCm repo paths
+RUN echo -e "[ROCm]\nname=ROCm\nbaseurl=https://repo.radeon.com/rocm/rhel8/$ROCM_VERSION/main\nenabled=1\ngpgcheck=0\npriority=50" >> /etc/yum.repos.d/rocm.repo
+RUN echo -e "[amdgpu]\nname=amdgpu\nbaseurl=https://repo.radeon.com/amdgpu/$AMDGPU_VERSION/rhel/8.9/main/x86_64\nenabled=1\ngpgcheck=0\npriority=50" >> /etc/yum.repos.d/amdgpu.repo
+
+# Install versioned ROCm packages eg. rocm-dev6.1.0 to avoid issues with "yum update" pulling really old rocm-dev packages from epel
+# COPY scripts/install_versioned_rocm.sh install_versioned_rocm.sh
+# RUN bash install_versioned_rocm.sh ${ROCM_VERSION}
+# RUN rm install_versioned_rocm.sh
+
+RUN yum install -y rocm-dev rocm-libs
+
+# Set ENV to enable devtoolset9 by default
+ENV PATH=/opt/rh/gcc-toolset-11/root/usr/bin:/opt/rocm/bin:${PATH:+:${PATH}}
+ENV MANPATH=/opt/rh/gcc-toolset-11/root/usr/share/man:${MANPATH}
+ENV INFOPATH=/opt/rh/gcc-toolset-11/root/usr/share/info:${INFOPATH:+:${INFOPATH}}
+ENV PCP_DIR=/opt/rh/gcc-toolset-11/root
+ENV PERL5LIB=/opt/rh/gcc-toolset-11/root/usr/lib64/perl5/vendor_perl
+ENV LD_LIBRARY_PATH=/opt/rocm/lib:/usr/local/lib:/opt/rh/gcc-toolset-11/root/lib:/opt/rh/gcc-toolset-11/root/lib64:${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+# ENV PYTHONPATH=/opt/rh/gcc-toolset-11/root/
+
+ENV LDFLAGS="-Wl,-rpath=/opt/rh/gcc-toolset-11/root/usr/lib64 -Wl,-rpath=/opt/rh/gcc-toolset-11/root/usr/lib"
+
 
 ### To create a local image for building linux binaries on mac or windows with efficient incremental builds
 #
@@ -17,17 +115,17 @@ ARG JETPACK_5=r35.4.1
 #
 # make -j 10 && go build -trimpath -o dist/linux-amd64/ollama .
 #
-FROM --platform=linux/amd64 rocm/dev-centos-7:${ROCM_VERSION}-complete AS unified-builder-amd64
+FROM rocm-dev-rockylinux AS unified-builder-amd64
 ARG CMAKE_VERSION
 ARG GOLANG_VERSION
 ARG CUDA_VERSION_11
 ARG CUDA_VERSION_12
 COPY ./scripts/rh_linux_deps.sh /
-ENV PATH /opt/rh/devtoolset-10/root/usr/bin:/usr/local/cuda/bin:$PATH
+ENV PATH /opt/rh/gcc-toolset-11/root/usr/bin:/usr/local/cuda/bin:$PATH
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs:/opt/amdgpu/lib64
 RUN CMAKE_VERSION=${CMAKE_VERSION} GOLANG_VERSION=${GOLANG_VERSION} sh /rh_linux_deps.sh
-RUN yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo && \
+RUN yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo && \
     dnf clean all && \
     dnf install -y \
     zsh \
@@ -59,7 +157,7 @@ RUN yum-config-manager --add-repo https://developer.download.nvidia.com/compute/
     zsh \
     cuda-toolkit-$(echo ${CUDA_VERSION_11} | cut -f1-2 -d. | sed -e "s/\./-/g") \
     cuda-toolkit-$(echo ${CUDA_VERSION_12} | cut -f1-2 -d. | sed -e "s/\./-/g")
-ENV PATH /opt/rh/gcc-toolset-10/root/usr/bin:$PATH:/usr/local/cuda/bin
+ENV PATH /opt/rh/gcc-toolset-11/root/usr/bin:$PATH:/usr/local/cuda/bin
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64
 ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs:/opt/amdgpu/lib64
 ENV GOARCH amd64
@@ -135,12 +233,12 @@ RUN --mount=type=cache,target=/root/.ccache \
 
 
 # Intermediate stages used for ./scripts/build_linux.sh
-FROM --platform=linux/amd64 centos:7 AS builder-amd64
+FROM --platform=linux/amd64 rockylinux:8 AS builder-amd64
 ARG CMAKE_VERSION
 ARG GOLANG_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} GOLANG_VERSION=${GOLANG_VERSION} sh /rh_linux_deps.sh
-ENV PATH /opt/rh/devtoolset-10/root/usr/bin:$PATH
+ENV PATH /opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 ENV CGO_ENABLED 1
 ENV GOARCH amd64
 WORKDIR /go/src/github.com/ollama/ollama
@@ -166,7 +264,7 @@ ARG CMAKE_VERSION
 ARG GOLANG_VERSION
 COPY ./scripts/rh_linux_deps.sh /
 RUN CMAKE_VERSION=${CMAKE_VERSION} GOLANG_VERSION=${GOLANG_VERSION} sh /rh_linux_deps.sh
-ENV PATH /opt/rh/gcc-toolset-10/root/usr/bin:$PATH
+ENV PATH /opt/rh/gcc-toolset-11/root/usr/bin:$PATH
 ENV CGO_ENABLED 1
 ENV GOARCH arm64
 WORKDIR /go/src/github.com/ollama/ollama
